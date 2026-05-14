@@ -1,0 +1,133 @@
+Employee Management Lightning Application
+Aim
+
+To develop an Employee Management Lightning Application in Salesforce that stores and manages employee records with validations.
+
+Employee Object Fields
+
+Create Custom Object:
+
+Employee
+Fields
+Field Name	Data Type
+Employee Name	Text
+Employee ID	Number
+Salary	Currency
+Email	Email
+Department	Picklist
+Joining Date	Date
+Department Picklist Values
+HR
+IT
+Sales
+Finance
+Marketing
+Validation Rules
+1. Employee Name Validation
+
+Name should not be empty and minimum 3 characters.
+
+Formula:
+
+LEN(Name) < 3
+
+Error Message:
+
+Employee Name must contain at least 3 characters.
+2. Employee ID Validation
+
+Employee ID must be greater than 0.
+
+Formula:
+
+Employee_ID__c <= 0
+
+Error Message:
+
+Employee ID must be greater than 0.
+
+For uniqueness:
+
+Open Employee_ID field
+Check:
+Unique
+3. Salary Validation
+
+Salary should be between 10,000 and 500,000.
+
+Formula:
+
+OR(
+Salary__c < 10000,
+Salary__c > 500000
+)
+
+Error Message:
+
+Salary must be between 10,000 and 500,000.
+4. Email Validation
+
+Use Email field datatype.
+
+Salesforce automatically validates email format.
+
+Example:
+
+abc@gmail.com
+5. Department Validation
+
+Department must be selected.
+
+Formula:
+
+ISBLANK(TEXT(Department__c))
+
+Error Message:
+
+Please select a department.
+6. Joining Date Validation
+
+Future dates are not allowed.
+
+Formula:
+
+Joining_Date__c > TODAY()
+
+Error Message:
+
+Joining Date cannot be a future date.
+Lightning App Creation
+
+Go to:
+
+Setup → App Manager → New Lightning App
+
+App Name:
+
+Employee Management App
+
+Add:
+
+Employee Tab
+Reports
+Dashboard
+Result
+
+The Employee Management Lightning Application was successfully developed with proper validation rules for employee records.
+
+Viva Questions
+What is a Validation Rule?
+
+A validation rule checks data before saving records.
+
+Why use Picklist for Department?
+
+To restrict user input to predefined values.
+
+What does TODAY() do?
+
+It returns the current system date.
+
+What is the use of Unique field?
+
+It prevents duplicate Employee IDs.
