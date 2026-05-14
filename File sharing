@@ -1,0 +1,448 @@
+PHASE 1: AWS Console Setup — Create VPC & EC2 Instances
+Step 1: Create a VPC
+Go to AWS Console → VPC → Create VPC
+Fill in:
+Name: secure-share-vpc
+IPv4 CIDR: 10.0.0.0/16
+Tenancy: Default
+Click Create VPC
+Step 2: Fill in Subnet Details
+Here's exactly what to enter for each field:
+Subnet Name
+secure-share-subnet
+Availability Zone
+You're already on:
+Asia Pacific (Mumbai) / aps1-az1 (ap-south-1a)
+✅ Keep this as-is — no change needed.
+IPv4 VPC CIDR block
+10.0.0.0/16
+✅ This is auto-filled from your VPC — don't change it.
+IPv4 Subnet CIDR block
+10.0.1.0/24
+Click Create Subnet
+Select the subnet → Actions → Modify auto-assign IP settings → Enable Auto-assign 
+public IPv4
+Step 3: Create & Attach Internet Gateway
+VPC → Internet Gateways → Create Internet Gateway
+Name: secure-share-igw
+After creation → Actions → Attach to VPC → select secure-share-vpc
+Step-by-Step: Create a Route Table
+1. Go to VPC → Route Tables → Click "Create Route Table"
+Fill in:
+Name:  secure-share-rt
+VPC:   
+select "secure-share-vpc"   ← your VPC
+Click Create Route Table
+2. Add Internet Gateway Route
+After creation, you'll land on the route table page:
+Click Routes tab → Edit routes → Add route
+DestinationTarget0.0.0.0/0Internet Gateway → secure-share-igw
+Click Save changes
+3. Associate Your Subnet
+Click Subnet Associations tab
+Click Edit subnet associations
+✅ Check secure-share-subnet
+Click Save associations
+## Step 5: Create Security Group
+A Security Group acts as a **firewall** for your EC2 instances.--
+### Navigate There:
+```
+EC2 → Security Groups (left sidebar) → Create Security Group
+```--
+### Fill in Basic Details:
+```
+Security group name:  secure-share-sg
+Description:          
+VPC:                  
+```--
+Security group for secure file sharing
+secure-share-vpc   ← IMPORTANT: select your VPC, not default
+### Inbound Rules — Add 2 rules:
+Click **Add Rule** twice and fill in:
+| # | Type | Protocol | Port Range | Source | Purpose |
+|---|---|---|---|---|---|
+| 1 | SSH | TCP | 22 | **My IP** | Your laptop → EC2 |
+| 2 | Custom TCP | TCP | 22 | `10.0.0.0/16` | VM-A ↔ VM-B internal |
+> For Rule 1 → select **"My IP"** from the source dropdown — AWS auto-fills your 
+current IP
+> For Rule 2 → type `10.0.0.0/16` manually — this allows both VMs to talk to each 
+other inside the VPC--
+### Outbound Rules:
+```
+Leave as default → All traffic, 0.0.0.0/0    
+```--
+### Then click **Create Security Group**--
+### It Should Look Like This:
+```
+Inbound Rules:
+✅
+(don't change)
+┌─────────────┬──────┬───────────────┬─────────────────────┐
+│ Type        
+│ Port │ Source        
+│ Purpose             
+│
+├─────────────┼──────┼───────────────┼─────────────────────┤
+│ SSH         
+│  22  │ x.x.x.x/32   │ Your machine        
+│
+│ Custom TCP  │  22  │ 10.0.0.0/16  │ Internal VM traffic │
+└─────────────┴──────┴───────────────┴─────────────────────┘
+```--
+Verify Security Group Inbound Rules
+EC2 → Security Groups → secure-share-sg
+→ Inbound Rules should show:
+┌──────┬──────┬───────────────┐
+│ Type │ Port │ Source        
+│
+├──────┼──────┼───────────────┤
+│ SSH  │  22  │ 0.0.0.0/0     
+│  ← for Instance Connect
+└──────┴──────┴───────────────┘
+⚠ Instance Connect needs port 22 open to 0.0.0.0/0
+(not just your IP) because AWS connects from their servers
+To fix:
+Edit Inbound Rules
+→ Change SSH source from "My IP" to "Anywhere IPv4" (0.0.0.0/0)
+→ Save Rules
+## Phase 2: Launch EC2 Instance A (Sender) — VM-A--
+### Navigate There:
+```
+EC2 → Instances → Launch Instances
+```--
+### 1. Name and Tags
+```
+Name:  VM-A-Sender
+```--
+### 2. Application and OS Image (AMI)
+```
+→ Click "Ubuntu"
+→ Select: Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
+→ Architecture: 64-bit (x86)
+→ It will say "Free tier eligible" 
+```--
+### 3. Instance Type
+```
+t2.micro   
+```--
+← Free tier eligible 
+### 4. Key Pair
+```
+→ Click "Create new key pair"
+Key pair name:    
+Key pair type:    
+secure-share-key
+RSA
+✅
+✅
+Private key format: .pem   (for Linux/Mac)
+.ppk   (for Windows PuTTY)
+→ Click "Create key pair"
+→ File downloads automatically  
+```
+>  
+�
+�
+⚠
+SAVE THIS FILE — you can't download it again!
+Save it somewhere safe like `~/Downloads/secure-share-key.pem`--
+### 5. Network Settings → Click "Edit"
+```
+VPC:               
+Subnet:            
+secure-share-vpc        
+secure-share-subnet     
+Auto-assign public IP:  ENABLE             
+Firewall:          
+← your VPC
+← your subnet
+← important!
+Select existing security group
+Security group:    
+```--
+secure-share-sg         
+### 6. Configure Storage
+```
+8 GiB   gp2   ← leave as default 
+```--
+### 7. Summary → Launch
+```
+Number of instances: 1
+→ Click "Launch Instance"
+```--
+✅
+### After Launch — Note Down VM-A IPs:
+```
+EC2 → Instances → click VM-A-Sender
+Note these two:
+┌─────────────────┬─────────────────┐
+│ Public IP       
+│ Private IP      
+├─────────────────┼─────────────────┤
+│ (changes on     
+│ 10.0.1.xx       
+│  reboot)        
+│ (stays fixed)   │
+└─────────────────┴─────────────────┘
+```
+← your security group
+│
+│
+--
+>  
+✅--
+Instance state should show **"Running"** within 1-2 minutes
+## Launch EC2 Instance B (Receiver) — VM-B--
+### Navigate There:
+```
+EC2 → Instances → Launch Instances
+```--
+### 1. Name and Tags
+```
+Name:  VM-B-Receiver
+```--
+### 2. Application and OS Image (AMI)
+```
+→ Click "Ubuntu"
+→ Select: Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
+→ Architecture: 64-bit (x86)
+→ Free tier eligible 
+```
+✅--
+### 3. Instance Type
+```
+t2.micro   
+```--
+← Free tier eligible 
+### 4. Key Pair
+```
+✅
+→ Click "Select existing key pair"  ← DON'T create new
+→ Select:  secure-share-key         
+← same key as VM-A
+✅ Check the acknowledgement checkbox
+```
+>  
+⚠
+Using the **same key pair** for both VMs makes management easier--
+### 5. Network Settings → Click "Edit"
+```
+VPC:                   
+Subnet:                
+secure-share-vpc       
+secure-share-subnet    
+Auto-assign public IP: ENABLE                 
+Firewall:              
+← same VPC
+← same subnet
+← important!
+Select existing security group
+Security group:        
+```--
+secure-share-sg        
+### 6. Configure Storage
+```
+8 GiB   gp2   ← leave as default 
+```--
+### 7. Launch
+```
+Number of instances: 1
+→ Click "Launch Instance"
+```--
+✅
+← same security group
+### After Launch — Note Down BOTH Instance IPs:
+Go to **EC2 → Instances** and note:
+```
+┌──────────────┬─────────────────────┬─────────────────┐
+│ Instance     
+│ Public IP           
+│ Private IP      
+│
+├──────────────┼─────────────────────┼─────────────────┤
+│ VM-A-Sender  │ x.x.x.x (public)   │ 10.0.1.xx       
+│
+│ VM-B-Receiver│ x.x.x.x (public)   │ 10.0.1.xx       
+│
+└──────────────┴─────────────────────┴─────────────────┘
+Write these down — you'll need them in every step ahead!
+```--
+### Both Instances Should Show:
+```
+Instance State:  ● Running    
+Status Checks:    
+✓
+✅
+2/2 checks passed  
+```
+✅
+> Status checks take **1-2 minutes** to pass — wait for this before proceeding--
+## Phase 4: Update & Install Tools on Both VMs--
+### Run on VM-A (Tab 1) AND VM-B (Tab 2) — One by one:--
+### Step 1: Update System
+sudo apt update && sudo apt upgrade -y
+### Step 2: Install Required Tools
+sudo apt install -y openssh-server rsync tree
+### Step 3: Enable & Start SSH
+sudo systemctl enable ssh
+sudo systemctl start ssh
+sudo systemctl status ssh
+Expected output:
+```
+● ssh.service - OpenBSD Secure Shell server
+Active: active (running)  
+```
+Press **Q** to exit status view--
+### Do All 4 Steps on BOTH VMs 
+✅
+✅
+```
+VM-A (Tab 1)          
+┌─────────────────────────┬─────────────────────────┐
+│   
+│   
+│ sudo apt update...    
+✅
+VM-B (Tab 2)          
+│ sudo apt update...    
+│ sudo apt install...   
+│ systemctl enable...   
+│ rsync --version       
+✅
+✅
+✅
+│ sudo apt install...   
+│ systemctl enable...   
+│ rsync --version       
+│
+✅
+✅
+✅
+✅
+│
+│
+│
+│
+└─────────────────────────┴─────────────────────────┘
+```--
+## Phase 5: Set Up SSH Keys (VM-A → VM-B)
+This allows VM-A to securely transfer files to VM-B **without a password**--
+### STEP 1: Generate SSH Key — Run on VM-A ONLY
+```bash
+ssh-keygen -t ed25519 -C "vm-a-to-vm-b" -f ~/.ssh/vm_transfer_key
+```
+When prompted:
+```
+Enter passphrase: (just press Enter)        
+← no passphrase
+Enter same passphrase again: (Enter again)  ← no passphrase
+```
+Success looks like:
+```
+Your identification has been saved in /home/ubuntu/.ssh/vm_transfer_key
+Your public key has been saved in /home/ubuntu/.ssh/vm_transfer_key.pub
+The key fingerprint is:
+SHA256:xxxxxxxxxxxxxx vm-a-to-vm-b    
+```--
+✅
+### STEP 2: View & Copy Public Key — Run on VM-A ONLY
+```bash
+cat ~/.ssh/vm_transfer_key.pub
+```
+Output looks like:
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...........
+............................................
+vm-a-to-vm-b
+```
+>  
+⚠
+**Select ALL of this output and copy it**
+> It starts with `ssh-ed25519` and ends with `vm-a-to-vm-b`--
+### STEP 3: Add Key to VM-B — Run on VM-B ONLY
+```bash
+# Create .ssh directory
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+# Paste VM-A's public key here
+echo "PASTE-VM-A-PUBLIC-KEY-HERE" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+Example (yours will be different):
+```bash
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...vm-a-to-vm-b" >> 
+~/.ssh/authorized_keys
+```--
+### STEP 4: Verify Key Added — Run on VM-B ONLY
+cat ~/.ssh/authorized_keys
+```
+Should show your key:
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA...vm-a-to-vm-b  
+```--
+### STEP 5: Test Connection — Run on VM-A ONLY
+# Use VM-B's PRIVATE IP here
+✅
+ssh -i ~/.ssh/vm_transfer_key ubuntu@<VM-B-PRIVATE-IP>
+First time prompt:
+```
+Are you sure you want to continue connecting? → type: yes
+```
+Success:
+```
+Welcome to Ubuntu 22.04 LTS
+ubuntu@ip-10-0-1-xx:~$   
+Then type:
+exit   
+## Yes! Paste the Actual Key — But It's NOT the IP Address!--
+###  
+```
+⚠
+Common Confusion:
+IP Address:  13.127.189.130        
+← This is NOT the key
+Public Key:  ssh-ed25519 AAAA...   ← This IS what you paste
+```--
+### Go to VM-A Tab and Run:
+```bash
+cat ~/.ssh/vm_transfer_key.pub
+```
+You'll see output like this:
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBx3jxq2Kh9LmP
+wRtYuIoP3qWeRtYuIoP3qWeRtYuIoP vm-a-to-vm-b
+```
+>  
+⚠--
+**Select and copy that ENTIRE line** starting from `ssh-ed25519`
+### Then Go to VM-B Tab and Run:
+```bash
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBx3jxq2Kh9LmP
+wRtYuIoP3qWeRtYuIoP3qWeRtYuIoP vm-a-to-vm-b" >> ~/.ssh/authorized_keys
+```
+> Replace what's inside the quotes with **your actual key from VM-A**
+--
+### Verify it worked on VM-B:
+```bash
+cat ~/.ssh/authorized_keys
+# Should show the ssh-ed25519 key 
+```--
+IN VM A (SENDER) 
+✅
+ubuntu@ip-10-0-1-194:~$ mkdir -p ~/files  
+ubuntu@ip-10-0-1-194:~$ cd files/
+ubuntu@ip-10-0-1-194:~/files$ nano temp.txt
+ubuntu@ip-10-0-1-194:~$ scp -i ~/.ssh/vm_transfer_key ~/files/temp.txt 
+ubuntu@10.0.1.140:    
+temp.txt                                                                    
+0.0KB/s   --:-- ETtemp.txt                                                     
+100%   
+26    
+IN VM B ( Reciever)
+59.4KB/s   00:00    
+ubuntu@ip-10-0-1-140:~$ ls
+temp.txt   
+'~p'
+ubuntu@ip-10-0-1-140:~$ cat temp.txt 
+0%    
+0
