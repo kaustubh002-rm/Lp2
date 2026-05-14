@@ -1,0 +1,57 @@
+#include<bits/stdc++.h>
+using namespace std;
+
+int n;
+vector<string>board;
+
+bool issafe(int row, int col){
+    //check left
+    for(int i=0;i<col;i++){
+        if(board[row][i]=='Q')return false;
+    }
+    //check upper diagonal
+    for(int i=row, j=col;i>=0 && j>=0;i--,j--){
+        if(board[i][j]=='Q'){
+            return false;
+        }
+    }
+    //check lower diagonal
+    for(int i=row, j=col; i<n && j>=0; i++,j--){
+        if(board[i][j]=='Q'){
+            return false;
+        }
+    }
+    return true;
+}
+
+void solve(int col){
+
+    if(col==n){
+        for(string row : board){
+            cout<<row<<endl;
+        }
+        cout<<endl;
+        return;
+    }
+
+    for(int row = 0; row<n; row++){
+        if(issafe(row, col)){
+            board[row][col] = 'Q';
+
+            solve(col+1);
+
+            board[row][col]='.';
+        }
+    }
+}
+
+int main(){
+    cout<<"Enter N: ";
+    cin>>n;
+
+    board.resize(n, string(n, '.'));
+
+    solve(0);
+
+    return 0;
+}
